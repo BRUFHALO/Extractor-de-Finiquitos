@@ -22,3 +22,8 @@ env/
 
 # Salidas generadas
 *.tmp
+
+# PDFs y Excel de ejemplo (contienen datos sensibles de pagos)
+*.pdf
+*.PDF
+*.xlsx

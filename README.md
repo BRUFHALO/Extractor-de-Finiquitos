@@ -6,8 +6,8 @@ PDF:
 
 - **Formato A — "Confirmación de Pagos"**: montos con `Bs.`, un solo nombre
   (paciente). Las columnas `Fec.Recep.` y `Nombre` (titular) quedan vacías.
-- **Formato B — export "Finiquito Beconsult"**: ya trae las 12 columnas del
-  Excel (dos nombres, dos cédulas, montos sin `Bs.`). Se parsea por posición de
+- **Formato B — export desde Excel**: ya trae las 12 columnas del formato
+  (dos nombres, dos cédulas, montos sin `Bs.`). Se parsea por posición de
   caracteres para reconstruir correctamente nombres largos que se solapan con la
   columna siguiente.
 
@@ -21,11 +21,11 @@ PDF:
 |---|---|---|
 | A | Fact. | # de Factura |
 | B | Fecha Fac | Fecha de Ocurrencia |
-| C | Fec.Recep. | (vacía) |
+| C | Fec.Recep. | (vacía en formato A / fecha de recepción en formato B) |
 | D | C.I. Pac. | C.I del Paciente |
 | E | Nombre | Nombre del Paciente |
 | F | C.I. Tit. | Certificado |
-| G | Nombre | (vacía) |
+| G | Nombre | (vacía en formato A / nombre del titular en formato B) |
 | H | Total Fac. | Total Facturado |
 | I | Monto a pagar | Total Pagado |
 | J | Pagado | Total Pagado |
@@ -35,12 +35,22 @@ PDF:
 Los montos `Bs. 83.861,99` se convierten a número (`83861.99`) y las fechas
 `dd/mm/yyyy` se guardan como fecha real de Excel.
 
-## Ejecutar en local (Docker)
+## Ejecutar con Docker Compose (recomendado)
+```bash
+docker compose up -d
+```
+Abre http://localhost:8000 — arrastra un PDF y descarga el Excel.
+
+Para detener:
+```bash
+docker compose down
+```
+
+## Ejecutar con Docker (sin Compose)
 ```bash
 docker build -t finiquito .
 docker run --rm -p 8000:8000 finiquito
 ```
-Abre http://localhost:8000
 
 ## Ejecutar en local (sin Docker)
 ```bash
@@ -61,7 +71,7 @@ uvicorn app.main:app --reload
 ### Opción B — Droplet con Docker
 ```bash
 # en el Droplet (con Docker instalado)
-git clone <tu-repo> && cd "Finiquito Beconsult"
+git clone <tu-repo> && cd <carpeta-del-repo>
 docker build -t finiquito .
 docker run -d --restart unless-stopped -p 80:8000 finiquito
 ```
@@ -70,3 +80,11 @@ docker run -d --restart unless-stopped -p 80:8000 finiquito
 - `GET /` — interfaz web
 - `POST /convert` — recibe un PDF (`multipart/form-data`, campo `file`) y devuelve el `.xlsx`
 - `GET /health` — healthcheck
+
+## Notas
+- Los PDFs y archivos Excel de ejemplo no se incluyen en el repositorio por
+  contener datos sensibles. Coloca tus propios archivos de prueba en el
+  directorio del proyecto para validar localmente.
+- Se procesa un PDF a la vez.
+- Las facturas alfanuméricas (ej. `A-68899`) se conservan como texto.
+- Las cédulas `SC` se conservan como texto.

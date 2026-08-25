@@ -1,0 +1,14 @@
+- generic [ref=e2]:
+  - heading "Conversor PDF → Excel" [level=1] [ref=e3]
+  - paragraph [ref=e4]:
+    - text: Arrastra un PDF de
+    - emphasis [ref=e5]: Confirmación de Pagos
+    - text: y descarga el finiquito en Excel.
+  - generic [ref=e10] [cursor=pointer]:
+    - text: Suelta el PDF aquí o
+    - strong [ref=e11]: haz clic para seleccionarlo
+  - generic [ref=e14]:
+    - generic [ref=e15]: FARMABIEN8B-CARACAS.PDF
+    - button "Quitar" [ref=e16] [cursor=pointer]
+  - button "Convertir a Excel" [ref=e12] [cursor=pointer]
+  - generic [ref=e13]: Listo ✓ 104 filas convertidas. Descarga iniciada.

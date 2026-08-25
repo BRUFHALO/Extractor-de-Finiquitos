@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(python3)",
+      "Exec(pip install)",
+      "Exec(unzip)",
+      "Exec(mkdir)",
+      "Exec(ls)",
+      "Exec(pdftotext)",
+      "Exec(.)",
+      "Exec(uvicorn)",
+      "Exec(sleep)",
+      "Exec(curl)",
+      "Exec(docker version)",
+      "Exec(docker build)",
+      "Exec(docker rm)",
+      "Exec(docker run)",
+      "Exec(file)",
+      "Exec(docker ps)",
+      "Exec(pdfinfo)",
+      "Exec(break)",
+      "Exec(find)",
+      "Exec(cp)",
+      "Exec(rm)"
+    ]
+  }
+}

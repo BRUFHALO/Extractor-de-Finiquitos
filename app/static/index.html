@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor PDF → Excel · Finiquito</title>
+  <style>
+    :root {
+      --azul: #2f5496;
+      --azul-claro: #d9e1f2;
+      --gris: #6b7280;
+      --ok: #1e7e34;
+      --err: #b02a37;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      width: 100%;
+      max-width: 560px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 32px;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 4px; color: #111827; }
+    p.sub { margin: 0 0 24px; color: var(--gris); font-size: .92rem; }
+    .drop {
+      border: 2px dashed #c3ccdb;
+      border-radius: 12px;
+      padding: 44px 20px;
+      text-align: center;
+      color: var(--gris);
+      cursor: pointer;
+      transition: all .15s ease;
+      background: #fafbff;
+    }
+    .drop:hover { border-color: var(--azul); background: #f5f8ff; }
+    .drop.drag { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); }
+    .drop svg { width: 46px; height: 46px; margin-bottom: 10px; opacity: .8; }
+    .drop strong { color: var(--azul); }
+    .file {
+      margin-top: 16px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f1f5ff;
+      border: 1px solid #dbe4ff;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .9rem;
+    }
+    .file .name { font-weight: 600; color: #1f2937; word-break: break-all; }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      background: var(--azul);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 13px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    button:hover:not(:disabled) { background: #243d6e; }
+    button:disabled { background: #9aa7c7; cursor: not-allowed; }
+    .msg { margin-top: 16px; font-size: .9rem; min-height: 20px; text-align: center; }
+    .msg.ok { color: var(--ok); }
+    .msg.err { color: var(--err); }
+    .spinner {
+      display: inline-block; width: 15px; height: 15px;
+      border: 2px solid #ffffff80; border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: -2px; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .link { background: none; color: var(--azul); text-decoration: underline; padding: 0; width: auto; margin: 0; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Conversor PDF → Excel</h1>
+    <p class="sub">Arrastra un PDF de <em>Confirmación de Pagos</em> y descarga el finiquito en Excel.</p>
+
+    <div id="drop" class="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 16V4m0 0L8 8m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/>
+      </svg>
+      <div>Suelta el PDF aquí o <strong>haz clic para seleccionarlo</strong></div>
+      <input id="input" type="file" accept="application/pdf,.pdf" hidden />
+    </div>
+
+    <div id="file" class="file">
+      <span class="name" id="fileName"></span>
+      <button class="link" id="clear" type="button">Quitar</button>
+    </div>
+
+    <button id="convert" disabled>Convertir a Excel</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const input = document.getElementById('input');
+    const fileBox = document.getElementById('file');
+    const fileName = document.getElementById('fileName');
+    const clearBtn = document.getElementById('clear');
+    const convertBtn = document.getElementById('convert');
+    const msg = document.getElementById('msg');
+    let selected = null;
+
+    function setFile(f) {
+      if (!f) return;
+      if (!f.name.toLowerCase().endsWith('.pdf')) {
+        showMsg('Solo se aceptan archivos PDF.', 'err');
+        return;
+      }
+      selected = f;
+      fileName.textContent = f.name;
+      fileBox.style.display = 'flex';
+      convertBtn.disabled = false;
+      showMsg('', '');
+    }
+
+    function clearFile() {
+      selected = null;
+      input.value = '';
+      fileBox.style.display = 'none';
+      convertBtn.disabled = true;
+      showMsg('', '');
+    }
+
+    function showMsg(text, type) {
+      msg.textContent = text;
+      msg.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    drop.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => setFile(input.files[0]));
+    clearBtn.addEventListener('click', clearFile);
+
+    ['dragenter', 'dragover'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', e => {
+      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+    });
+
+    convertBtn.addEventListener('click', async () => {
+      if (!selected) return;
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = '<span class="spinner"></span>Convirtiendo...';
+      showMsg('', '');
+
+      try {
+        const fd = new FormData();
+        fd.append('file', selected);
+        const res = await fetch('/convert', { method: 'POST', body: fd });
+
+        if (!res.ok) {
+          let detail = 'Error al convertir el archivo.';
+          try { detail = (await res.json()).detail || detail; } catch (_) {}
+          throw new Error(detail);
+        }
+
+        const rows = res.headers.get('X-Row-Count');
+        const blob = await res.blob();
+        const outName = selected.name.replace(/\.pdf$/i, '') + '.xlsx';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = outName;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+
+        showMsg('Listo ✓ ' + (rows ? rows + ' filas convertidas. ' : '') + 'Descarga iniciada.', 'ok');
+      } catch (err) {
+        showMsg(err.message, 'err');
+      } finally {
+        convertBtn.disabled = false;
+        convertBtn.textContent = 'Convertir a Excel';
+      }
+    });
+  </script>
+</body>
+</html>

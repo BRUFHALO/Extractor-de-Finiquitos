@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.Python
+*.egg-info/
+
+# Entornos / editores
+.env
+.env.*
+.vscode/
+.idea/
+
+# Configuración local de Devin (específica de la máquina)
+.devin/config.local.json
+
+# Artefactos de Playwright MCP
+.playwright-mcp/
+
+# Salidas generadas
+*.tmp

@@ -1,12 +1,14 @@
 """Extrae las filas de pago de los PDF y las devuelve con el esquema del
 Excel `modelo finiquito` (12 columnas).
 
-Soporta dos formatos de PDF:
+Soporta dos formatos de PDF, detectados por la ESTRUCTURA del contenido
+(sin depender de títulos ni textos específicos del documento):
 
-- Formato A: "CONFIRMACIÓN DE PAGOS" / "FINIQUITO DE PAGOS"
-  (montos con 'Bs.', un solo nombre).
-- Formato B: export tipo "Finiquito Beconsult" (mismas 12 columnas del Excel,
-  montos sin 'Bs.', dos nombres). Se parsea por posición de caracteres para
+- Formato A: filas "factura fecha clave cert nombre cipac monto monto
+  fecha referencia" (montos opcionalmente con prefijo 'Bs.', un solo
+  nombre).
+- Formato B: tabla con las mismas 12 columnas del Excel (encabezado con
+  'Fec.Recep.', dos nombres). Se parsea por posición de caracteres para
   tolerar nombres largos que se solapan con la columna siguiente.
 
 Esquema unificado de cada fila (claves = columnas A..L del Excel):
@@ -51,15 +53,15 @@ def _to_date(raw: str) -> date | None:
 
 ROW_RE_A = re.compile(
     r"^(?P<factura>[A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)\s+"
-    r"(?P<focurr>\d{2}/\d{2}/\d{4})\s+"
+    r"(?P<focurr>\d{1,2}/\d{1,2}/\d{4})\s+"
     r"(?P<clave>\d+-\d+)\s+"
     r"(?P<cert>\S+)\s+"
     r"(?P<nombre>.+?)\s+"
-    r"(?P<cipac>SC|\d+)\s+"
-    r"Bs\.\s*(?P<tfac>[\d.,]+)\s+"
-    r"Bs\.\s*(?P<tpag>[\d.,]+)\s+"
-    r"(?P<fpago>\d{2}/\d{2}/\d{4})\s+"
-    r"(?P<ref>\d+)\s*$",
+    r"(?P<cipac>(?:[A-Za-z]-)?\d+|SC)\s+"
+    r"(?:Bs\.\s*)?(?P<tfac>[\d.,]+)\s+"
+    r"(?:Bs\.\s*)?(?P<tpag>[\d.,]+)\s+"
+    r"(?P<fpago>\d{1,2}/\d{1,2}/\d{4})\s+"
+    r"(?P<ref>\S+)\s*$",
     re.UNICODE,
 )
 
@@ -118,8 +120,13 @@ def _parse_format_a(full_text: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 # El encabezado puede venir con o sin espacios entre columnas (pdfplumber no
-# siempre emite glifos de espacio), por eso los espacios son opcionales.
-HEADER_B_RE = re.compile(r"Fact\.\s*Fecha\s*Fac\s*Fec\.Recep\.", re.UNICODE)
+# siempre emite glifos de espacio), y la puntuación puede variar. Se detecta
+# por palabras clave, no por el texto exacto: toda tabla formato B tiene
+# 'Fec.Recep.' y 'Fecha'.
+def _looks_like_header_b(norm: str) -> bool:
+    low = norm.lower()
+    return "recep" in low and "fecha" in low
+
 # Una fila de datos contiene al menos una fecha d/m/aaaa.
 DATA_DATE_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}", re.UNICODE)
 
@@ -240,7 +247,7 @@ def _parse_format_b(pages) -> list[dict]:
             norm = re.sub(r"\s+", " ", _txt(rowchars)).strip()
             if not norm:
                 continue
-            if HEADER_B_RE.search(norm):
+            if _looks_like_header_b(norm):
                 lefts = _detect_columns(rowchars)
                 continue
             if lefts is None or not DATA_DATE_RE.search(norm):
@@ -254,9 +261,9 @@ def _parse_format_b(pages) -> list[dict]:
 def _provider_format_b(full_text: str) -> str | None:
     for line in full_text.splitlines():
         s = line.strip()
-        if not s or s == "Finiquito" or s.startswith("Beconsult"):
+        if not s:
             continue
-        if HEADER_B_RE.search(s):
+        if _looks_like_header_b(s):
             break
         return s
     return None
@@ -267,23 +274,25 @@ def _provider_format_b(full_text: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 def parse_pdf(file_bytes: bytes) -> tuple[list[dict], str | None]:
-    """Devuelve (filas, nombre_proveedor). Detecta el formato del PDF."""
+    """Devuelve (filas, nombre_proveedor).
+
+    La detección es estructural: no depende de títulos ni textos fijos.
+    Se prueba primero el formato A (filas con patrón de pago) y, si no hay
+    coincidencias, el formato B (tabla de 12 columnas con 'Fec.Recep.').
+    """
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         pages = pdf.pages
         full_text = "\n".join((p.extract_text() or "") for p in pages)
 
-        # Formato A: "CONFIRMACIÓN DE PAGOS" o "FINIQUITO DE PAGOS".
-        # También se reconoce por su encabezado '# de Factura' + montos 'Bs.'.
-        if (
-            "CONFIRMACIÓN DE PAGOS" in full_text
-            or "FINIQUITO DE PAGOS" in full_text
-            or ("# de Factura" in full_text and "Bs." in full_text)
-        ):
+        # Formato A: detección por las filas de datos mismas.
+        rows_a = _parse_format_a(full_text)
+        if rows_a:
             m = PROVIDER_RE.search(full_text)
             provider = m.group("prov").strip() if m else None
-            return _parse_format_a(full_text), provider
+            return rows_a, provider
 
-        if HEADER_B_RE.search(re.sub(r"\s+", " ", full_text)):
+        # Formato B: encabezado con 'Fec.Recep.' + 'Fecha'.
+        if _looks_like_header_b(re.sub(r"\s+", " ", full_text)):
             return _parse_format_b(pages), _provider_format_b(full_text)
 
     return [], None

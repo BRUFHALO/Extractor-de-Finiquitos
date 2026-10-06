@@ -1,15 +1,20 @@
 # Conversor PDF → Excel (Finiquito)
 
-Aplicación web con **drag & drop** que convierte un PDF de pagos en un archivo
-Excel con el formato `modelo finiquito`. Detecta automáticamente el formato del
-PDF:
+Aplicación web con **drag & drop** que convierte PDFs de pagos en archivos
+Excel con el formato `modelo finiquito`. Acepta **uno o varios PDFs a la vez**
+(si se suben varios, se descarga un `.zip` con un Excel por PDF). La detección
+del formato es **estructural** — no depende de títulos ni textos específicos:
 
-- **Formato A — "Confirmación de Pagos"**: montos con `Bs.`, un solo nombre
-  (paciente). Las columnas `Fec.Recep.` y `Nombre` (titular) quedan vacías.
-- **Formato B — export desde Excel**: ya trae las 12 columnas del formato
-  (dos nombres, dos cédulas, montos sin `Bs.`). Se parsea por posición de
-  caracteres para reconstruir correctamente nombres largos que se solapan con la
-  columna siguiente.
+- **Formato A — listado de pagos**: filas con patrón
+  `factura fecha clave certificado nombre cédula monto monto fecha referencia`
+  (montos con o sin prefijo `Bs.`). Las columnas `Fec.Recep.` y `Nombre`
+  (titular) quedan en `0`.
+- **Formato B — tabla de 12 columnas**: ya trae el formato completo (encabezado
+  con `Fec.Recep.`, dos nombres, dos cédulas). Se parsea por posición de
+  caracteres para reconstruir correctamente nombres largos que se solapan con
+  la columna siguiente.
+
+Las celdas sin dato se escriben como `0`.
 
 ## Tecnología
 - **Backend:** FastAPI + pdfplumber + openpyxl
@@ -21,11 +26,11 @@ PDF:
 |---|---|---|
 | A | Fact. | # de Factura |
 | B | Fecha Fac | Fecha de Ocurrencia |
-| C | Fec.Recep. | (vacía en formato A / fecha de recepción en formato B) |
+| C | Fec.Recep. | (0 en formato A / fecha de recepción en formato B) |
 | D | C.I. Pac. | C.I del Paciente |
 | E | Nombre | Nombre del Paciente |
 | F | C.I. Tit. | Certificado |
-| G | Nombre | (vacía en formato A / nombre del titular en formato B) |
+| G | Nombre | (0 en formato A / nombre del titular en formato B) |
 | H | Total Fac. | Total Facturado |
 | I | Monto a pagar | Total Pagado |
 | J | Pagado | Total Pagado |
@@ -78,13 +83,15 @@ docker run -d --restart unless-stopped -p 80:8000 finiquito
 
 ## Endpoints
 - `GET /` — interfaz web
-- `POST /convert` — recibe un PDF (`multipart/form-data`, campo `file`) y devuelve el `.xlsx`
+- `POST /convert` — recibe uno o varios PDFs (`multipart/form-data`, campo
+  `files` repetido). Con un solo PDF devuelve el `.xlsx` directo; con varios
+  devuelve `finiquitos.zip` (un Excel por PDF + `_errores.txt` si alguno falló).
+  Headers de respuesta: `X-Row-Count`, `X-File-Count`, `X-Failed-Count`.
 - `GET /health` — healthcheck
 
 ## Notas
 - Los PDFs y archivos Excel de ejemplo no se incluyen en el repositorio por
   contener datos sensibles. Coloca tus propios archivos de prueba en el
   directorio del proyecto para validar localmente.
-- Se procesa un PDF a la vez.
 - Las facturas alfanuméricas (ej. `A-68899`) se conservan como texto.
 - Las cédulas `SC` se conservan como texto.

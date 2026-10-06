@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from datetime import date, datetime
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -73,11 +74,13 @@ def build_xlsx(rows: list[dict]) -> bytes:
             row.get("fecha_pago"),            # L  Fecha pago
         ]
         for c_idx, value in enumerate(values, start=1):
+            if value is None or (isinstance(value, str) and not value.strip()):
+                value = 0
             cell = ws.cell(row=r, column=c_idx, value=value)
             cell.border = border
-            if c_idx in (2, 12):          # fechas B y L
+            if c_idx in (2, 3, 12) and isinstance(value, (date, datetime)):
                 cell.number_format = DATE_FMT
-            elif c_idx in (8, 9, 10):     # montos H, I, J
+            elif c_idx in (8, 9, 10) and isinstance(value, (int, float)):
                 cell.number_format = MONEY_FMT
 
     for idx, width in enumerate(COL_WIDTHS, start=1):

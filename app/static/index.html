@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Conversor PDF → Excel · Finiquito</title>
+  <link rel="icon" href="data:," />
   <style>
     :root {
       --azul: #2f5496;
@@ -47,19 +48,25 @@
     .drop.drag { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); }
     .drop svg { width: 46px; height: 46px; margin-bottom: 10px; opacity: .8; }
     .drop strong { color: var(--azul); }
-    .file {
+    .files {
       margin-top: 16px;
       display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
       background: #f1f5ff;
       border: 1px solid #dbe4ff;
       border-radius: 8px;
       padding: 10px 14px;
       font-size: .9rem;
     }
-    .file .name { font-weight: 600; color: #1f2937; word-break: break-all; }
+    .files ul { margin: 6px 0 0; padding-left: 18px; max-height: 140px; overflow-y: auto; }
+    .files li { padding: 2px 0; color: #1f2937; word-break: break-all; }
+    .files .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 600;
+      color: #1f2937;
+    }
     button {
       margin-top: 20px;
       width: 100%;
@@ -91,20 +98,23 @@
 <body>
   <div class="card">
     <h1>Conversor PDF → Excel</h1>
-    <p class="sub">Arrastra un PDF de <em>Confirmación de Pagos</em> y descarga el finiquito en Excel.</p>
+    <p class="sub">Arrastra uno o varios PDFs de pagos y descarga el finiquito en Excel.</p>
 
     <div id="drop" class="drop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <path d="M12 16V4m0 0L8 8m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/>
       </svg>
-      <div>Suelta el PDF aquí o <strong>haz clic para seleccionarlo</strong></div>
-      <input id="input" type="file" accept="application/pdf,.pdf" hidden />
+      <div>Suelta los PDFs aquí o <strong>haz clic para seleccionarlos</strong></div>
+      <input id="input" type="file" accept="application/pdf,.pdf" multiple hidden />
     </div>
 
-    <div id="file" class="file">
-      <span class="name" id="fileName"></span>
-      <button class="link" id="clear" type="button">Quitar</button>
+    <div id="files" class="files">
+      <div class="head">
+        <span id="fileCount"></span>
+        <button class="link" id="clear" type="button">Quitar todos</button>
+      </div>
+      <ul id="fileList"></ul>
     </div>
 
     <button id="convert" disabled>Convertir a Excel</button>
@@ -114,31 +124,47 @@
   <script>
     const drop = document.getElementById('drop');
     const input = document.getElementById('input');
-    const fileBox = document.getElementById('file');
-    const fileName = document.getElementById('fileName');
+    const filesBox = document.getElementById('files');
+    const fileCount = document.getElementById('fileCount');
+    const fileList = document.getElementById('fileList');
     const clearBtn = document.getElementById('clear');
     const convertBtn = document.getElementById('convert');
     const msg = document.getElementById('msg');
-    let selected = null;
+    let selected = [];
 
-    function setFile(f) {
-      if (!f) return;
-      if (!f.name.toLowerCase().endsWith('.pdf')) {
+    function addFiles(list) {
+      const pdfs = [...list].filter(f => f.name.toLowerCase().endsWith('.pdf'));
+      if (list.length && !pdfs.length) {
         showMsg('Solo se aceptan archivos PDF.', 'err');
         return;
       }
-      selected = f;
-      fileName.textContent = f.name;
-      fileBox.style.display = 'flex';
-      convertBtn.disabled = false;
-      showMsg('', '');
+      if (pdfs.length < list.length) {
+        showMsg('Se ignoraron ' + (list.length - pdfs.length) + ' archivo(s) que no son PDF.', 'err');
+      }
+      const names = new Set(selected.map(f => f.name));
+      pdfs.forEach(f => { if (!names.has(f.name)) selected.push(f); });
+      renderFiles();
     }
 
-    function clearFile() {
-      selected = null;
+    function renderFiles() {
+      fileList.innerHTML = '';
+      selected.forEach(f => {
+        const li = document.createElement('li');
+        li.textContent = f.name;
+        fileList.appendChild(li);
+      });
+      fileCount.textContent = selected.length === 1
+        ? '1 archivo'
+        : selected.length + ' archivos';
+      filesBox.style.display = selected.length ? 'block' : 'none';
+      convertBtn.disabled = !selected.length;
+      if (selected.length) showMsg('', '');
+    }
+
+    function clearFiles() {
+      selected = [];
       input.value = '';
-      fileBox.style.display = 'none';
-      convertBtn.disabled = true;
+      renderFiles();
       showMsg('', '');
     }
 
@@ -147,45 +173,62 @@
       msg.className = 'msg' + (type ? ' ' + type : '');
     }
 
+    function downloadName(res) {
+      const cd = res.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename="?([^";]+)"?/i);
+      if (m) return m[1];
+      return selected.length === 1
+        ? selected[0].name.replace(/\.pdf$/i, '') + '.xlsx'
+        : 'finiquitos.zip';
+    }
+
     drop.addEventListener('click', () => input.click());
-    input.addEventListener('change', () => setFile(input.files[0]));
-    clearBtn.addEventListener('click', clearFile);
+    input.addEventListener('change', () => addFiles(input.files));
+    clearBtn.addEventListener('click', clearFiles);
 
     ['dragenter', 'dragover'].forEach(ev =>
       drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
     ['dragleave', 'drop'].forEach(ev =>
       drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
     drop.addEventListener('drop', e => {
-      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
     });
 
     convertBtn.addEventListener('click', async () => {
-      if (!selected) return;
+      if (!selected.length) return;
       convertBtn.disabled = true;
       convertBtn.innerHTML = '<span class="spinner"></span>Convirtiendo...';
       showMsg('', '');
 
       try {
         const fd = new FormData();
-        fd.append('file', selected);
+        selected.forEach(f => fd.append('files', f));
         const res = await fetch('/convert', { method: 'POST', body: fd });
 
         if (!res.ok) {
-          let detail = 'Error al convertir el archivo.';
+          let detail = 'Error al convertir los archivos.';
           try { detail = (await res.json()).detail || detail; } catch (_) {}
           throw new Error(detail);
         }
 
         const rows = res.headers.get('X-Row-Count');
+        const nFiles = res.headers.get('X-File-Count');
+        const failed = res.headers.get('X-Failed-Count');
         const blob = await res.blob();
-        const outName = selected.name.replace(/\.pdf$/i, '') + '.xlsx';
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = outName;
+        a.href = url; a.download = downloadName(res);
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
 
-        showMsg('Listo ✓ ' + (rows ? rows + ' filas convertidas. ' : '') + 'Descarga iniciada.', 'ok');
+        let text = 'Listo ✓ '
+          + (nFiles ? nFiles + ' archivo(s), ' : '')
+          + (rows ? rows + ' filas convertidas. ' : '')
+          + 'Descarga iniciada.';
+        if (failed && failed !== '0') {
+          text += ' ' + failed + ' PDF(s) fallaron (ver _errores.txt en el ZIP).';
+        }
+        showMsg(text, 'ok');
       } catch (err) {
         showMsg(err.message, 'err');
       } finally {

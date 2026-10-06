@@ -3,7 +3,8 @@ Excel `modelo finiquito` (12 columnas).
 
 Soporta dos formatos de PDF:
 
-- Formato A: "CONFIRMACIÓN DE PAGOS" (montos con 'Bs.', un solo nombre).
+- Formato A: "CONFIRMACIÓN DE PAGOS" / "FINIQUITO DE PAGOS"
+  (montos con 'Bs.', un solo nombre).
 - Formato B: export tipo "Finiquito Beconsult" (mismas 12 columnas del Excel,
   montos sin 'Bs.', dos nombres). Se parsea por posición de caracteres para
   tolerar nombres largos que se solapan con la columna siguiente.
@@ -67,7 +68,8 @@ NAME_CONT_RE = re.compile(r"^[A-ZÁÉÍÓÚÑÜ .,'\-]+$", re.UNICODE)
 PROVIDER_RE = re.compile(r"PROVEEDOR\s+(?P<prov>.+?)\s+RIF", re.UNICODE)
 
 NOISE_KEYWORDS = (
-    "CONFIRMACIÓN DE PAGOS", "PROVEEDOR", "# de Factura", "Página", "FECHA",
+    "CONFIRMACIÓN DE PAGOS", "FINIQUITO DE PAGOS", "PROVEEDOR",
+    "# de Factura", "Página", "FECHA",
     "Pagos en", "Desde:", "Estimados", "Atención", "Departamento", "TOTALES",
     "NOTA", "Ocurrencia", "Paciente", "MiSaludyMás", "RIF", "Certificado",
 )
@@ -270,7 +272,13 @@ def parse_pdf(file_bytes: bytes) -> tuple[list[dict], str | None]:
         pages = pdf.pages
         full_text = "\n".join((p.extract_text() or "") for p in pages)
 
-        if "CONFIRMACIÓN DE PAGOS" in full_text:
+        # Formato A: "CONFIRMACIÓN DE PAGOS" o "FINIQUITO DE PAGOS".
+        # También se reconoce por su encabezado '# de Factura' + montos 'Bs.'.
+        if (
+            "CONFIRMACIÓN DE PAGOS" in full_text
+            or "FINIQUITO DE PAGOS" in full_text
+            or ("# de Factura" in full_text and "Bs." in full_text)
+        ):
             m = PROVIDER_RE.search(full_text)
             provider = m.group("prov").strip() if m else None
             return _parse_format_a(full_text), provider

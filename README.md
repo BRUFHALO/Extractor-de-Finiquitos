@@ -40,15 +40,18 @@ Las celdas sin dato se escriben como `0`.
 Los montos `Bs. 83.861,99` se convierten a número (`83861.99`) y las fechas
 `dd/mm/yyyy` se guardan como fecha real de Excel.
 
-## Ejecutar con Docker Compose (recomendado)
+## Ejecutar en local (script)
+```bash
+./run.sh          # levanta la app (Docker si está disponible, si no, venv+uvicorn)
+./run.sh down     # detiene el contenedor
+./run.sh logs     # muestra los logs
+```
+Abre http://localhost:8000 — arrastra los PDFs y descarga el Excel/ZIP.
+
+## Ejecutar con Docker Compose (manual)
 ```bash
 docker compose up -d
-```
-Abre http://localhost:8000 — arrastra un PDF y descarga el Excel.
-
-Para detener:
-```bash
-docker compose down
+docker compose down   # para detener
 ```
 
 ## Ejecutar con Docker (sin Compose)

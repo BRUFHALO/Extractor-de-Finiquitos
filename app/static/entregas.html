@@ -94,6 +94,13 @@
     .bar > div { height: 100%; background: var(--azul); width: 0%; transition: width .3s; }
     .nav { margin-top: 18px; text-align: center; font-size: .85rem; }
     .nav a { color: var(--azul); }
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 22px 0 4px; color: var(--gris); font-size: .85rem;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: #e5e7eb;
+    }
     .dl {
       display: none; margin-top: 16px; text-align: center;
     }
@@ -130,6 +137,16 @@
       <button id="start" disabled>Marcar entregas</button>
     </div>
 
+    <div class="divider"><span>o marca un ID específico</span></div>
+    <div class="row">
+      <div class="field">
+        <label for="singleId">Identificador de la solicitud</label>
+        <input id="singleId" type="text" placeholder="ej. 238600" />
+      </div>
+      <button id="markOne">Marcar</button>
+    </div>
+    <div id="singleMsg" class="msg"></div>
+
     <div class="bar" id="bar"><div id="barFill"></div></div>
     <div class="stats" id="stats" style="display:none">
       <div class="stat ok"><b id="sEnt">0</b>Entregadas</div>
@@ -159,6 +176,9 @@
     const barFill = document.getElementById('barFill');
     const dl = document.getElementById('dl');
     const dlLink = document.getElementById('dlLink');
+    const singleId = document.getElementById('singleId');
+    const markOneBtn = document.getElementById('markOne');
+    const singleMsg = document.getElementById('singleMsg');
     let selected = null;
     let jobId = null;
     let poll = null;
@@ -273,6 +293,42 @@
         startBtn.disabled = false; startBtn.textContent = 'Marcar entregas';
       }
     });
+
+    function showSingle(text, type) {
+      singleMsg.textContent = text;
+      singleMsg.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    async function markSingle() {
+      const idv = singleId.value.trim();
+      if (!idv) { showSingle('Escribe un ID.', 'err'); return; }
+      markOneBtn.disabled = true;
+      markOneBtn.textContent = 'Enviando...';
+      showSingle('', '');
+      try {
+        const fd = new FormData();
+        fd.append('identificador', idv);
+        const res = await fetch('/api/entregas/id', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error al marcar.');
+        if (data.categoria === 'entregada') {
+          showSingle('ID ' + data.id + ': entregada ✓ ' + data.detalle, 'ok');
+        } else if (data.categoria === 'culminada') {
+          showSingle('ID ' + data.id + ': ya estaba culminada — ' + data.detalle, 'ok');
+        } else {
+          showSingle('ID ' + data.id + ': ' + data.detalle, 'err');
+        }
+        singleId.value = '';
+      } catch (err) {
+        showSingle(err.message, 'err');
+      } finally {
+        markOneBtn.disabled = false;
+        markOneBtn.textContent = 'Marcar';
+      }
+    }
+
+    markOneBtn.addEventListener('click', markSingle);
+    singleId.addEventListener('keydown', e => { if (e.key === 'Enter') markSingle(); });
   </script>
 </body>
 </html>

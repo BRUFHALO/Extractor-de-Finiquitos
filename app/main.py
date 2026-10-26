@@ -240,6 +240,21 @@ async def start_entrega(file: UploadFile = File(...), limite: int | None = Form(
     return {"job_id": job_id}
 
 
+@app.post("/api/entregas/id")
+async def marcar_un_id(identificador: str = Form(...)):
+    """Marca un solo ID como entregado (síncrono, sin NumeroFactura)."""
+    if not entregas.token_configured():
+        raise HTTPException(500, "Falta configurar ENTREGA_TOKEN en el archivo .env")
+    identificador = identificador.strip()
+    if not identificador:
+        raise HTTPException(400, "El ID no puede estar vacío.")
+
+    categoria, detalle = entregas.enviar(
+        identificador, None, entregas.CODIGO_PROVEEDOR_TXT
+    )
+    return {"id": identificador, "categoria": categoria, "detalle": detalle}
+
+
 @app.get("/api/entregas/{job_id}")
 def entrega_status(job_id: str):
     job = JOBS.get(job_id)

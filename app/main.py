@@ -136,7 +136,8 @@ JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
 
 
-def _run_entrega_job(job: dict, filename: str, content: bytes, limite: int | None):
+def _run_entrega_job(job: dict, filename: str, content: bytes,
+                     limite: int | None, proveedor: str):
     def log(line: str):
         job["log"].append(line)
 
@@ -146,7 +147,7 @@ def _run_entrega_job(job: dict, filename: str, content: bytes, limite: int | Non
             ids = entregas.leer_ids_txt(content)
             if not ids:
                 raise entregas.EntregaError("El .txt no contiene IDs.")
-            items = [{"id": i, "factura": None, "codigo": entregas.CODIGO_PROVEEDOR_TXT}
+            items = [{"id": i, "factura": None, "codigo": proveedor}
                      for i in ids]
             job["total"] = len(items)
             objetivo = limite or len(items)
@@ -211,13 +212,17 @@ def _run_entrega_job(job: dict, filename: str, content: bytes, limite: int | Non
 
 
 @app.post("/api/entregas")
-async def start_entrega(file: UploadFile = File(...), limite: int | None = Form(None)):
+async def start_entrega(file: UploadFile = File(...),
+                        limite: int | None = Form(None),
+                        proveedor: str | None = Form(None)):
     if not entregas.token_configured():
         raise HTTPException(500, "Falta configurar ENTREGA_TOKEN en el archivo .env")
     if not file.filename:
         raise HTTPException(400, "No se recibió archivo.")
     if not file.filename.lower().endswith((".txt", ".xlsx")):
         raise HTTPException(400, "El archivo debe ser .txt o .xlsx")
+
+    cod_prov = (proveedor or "").strip() or entregas.CODIGO_PROVEEDOR_TXT
 
     content = await file.read()
     if not content:
@@ -234,14 +239,15 @@ async def start_entrega(file: UploadFile = File(...), limite: int | None = Form(
     }
     threading.Thread(
         target=_run_entrega_job,
-        args=(JOBS[job_id], file.filename, content, limite),
+        args=(JOBS[job_id], file.filename, content, limite, cod_prov),
         daemon=True,
     ).start()
     return {"job_id": job_id}
 
 
 @app.post("/api/entregas/id")
-async def marcar_un_id(identificador: str = Form(...)):
+async def marcar_un_id(identificador: str = Form(...),
+                       proveedor: str | None = Form(None)):
     """Marca un solo ID como entregado (síncrono, sin NumeroFactura)."""
     if not entregas.token_configured():
         raise HTTPException(500, "Falta configurar ENTREGA_TOKEN en el archivo .env")
@@ -249,10 +255,10 @@ async def marcar_un_id(identificador: str = Form(...)):
     if not identificador:
         raise HTTPException(400, "El ID no puede estar vacío.")
 
-    categoria, detalle = entregas.enviar(
-        identificador, None, entregas.CODIGO_PROVEEDOR_TXT
-    )
-    return {"id": identificador, "categoria": categoria, "detalle": detalle}
+    cod_prov = (proveedor or "").strip() or entregas.CODIGO_PROVEEDOR_TXT
+    categoria, detalle = entregas.enviar(identificador, None, cod_prov)
+    return {"id": identificador, "categoria": categoria, "detalle": detalle,
+            "proveedor": cod_prov}
 
 
 @app.get("/api/entregas/{job_id}")

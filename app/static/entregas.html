@@ -65,9 +65,9 @@
     .row { display: flex; gap: 12px; margin-top: 16px; align-items: flex-end; }
     .field { flex: 1; }
     .field label { display: block; font-size: .82rem; color: var(--gris); margin-bottom: 4px; }
-    .field input {
+    .field input, .field select {
       width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
-      border-radius: 8px; font-size: .95rem;
+      border-radius: 8px; font-size: .95rem; background: #fff;
     }
     button {
       background: var(--azul); color: #fff; border: 0; border-radius: 8px;
@@ -131,7 +131,11 @@
 
     <div class="row">
       <div class="field">
-        <label for="limite">Cantidad a procesar (vacío = todas las pendientes)</label>
+        <label for="proveedor">Proveedor (solo para .txt; el Excel usa el de cada fila)</label>
+        <select id="proveedor"></select>
+      </div>
+      <div class="field">
+        <label for="limite">Cantidad (vacío = todas)</label>
         <input id="limite" type="number" min="1" placeholder="todas" />
       </div>
       <button id="start" disabled>Marcar entregas</button>
@@ -142,6 +146,10 @@
       <div class="field">
         <label for="singleId">Identificador de la solicitud</label>
         <input id="singleId" type="text" placeholder="ej. 238600" />
+      </div>
+      <div class="field">
+        <label for="proveedorSingle">Proveedor</label>
+        <select id="proveedorSingle"></select>
       </div>
       <button id="markOne">Marcar</button>
     </div>
@@ -183,6 +191,21 @@
     let jobId = null;
     let poll = null;
     let logLen = 0;
+
+    const PROVEEDORES = [
+      ['00077', 'Caracas'],
+      ['00082', 'Mérida'],
+      ['00083', 'Farmaignacio'],
+      ['00088', 'Farmadon'],
+      ['00100', 'Dimaword'],
+      ['00099', 'Farme'],
+    ];
+    [document.getElementById('proveedor'), document.getElementById('proveedorSingle')]
+      .forEach(sel => PROVEEDORES.forEach(([cod, nombre]) => {
+        const o = document.createElement('option');
+        o.value = cod; o.textContent = `${nombre} (${cod})`;
+        sel.appendChild(o);
+      }));
 
     function setFile(f) {
       if (!f) return;
@@ -277,6 +300,7 @@
       try {
         const fd = new FormData();
         fd.append('file', selected);
+        fd.append('proveedor', document.getElementById('proveedor').value);
         if (lim > 0) fd.append('limite', String(lim));
         const res = await fetch('/api/entregas', { method: 'POST', body: fd });
         if (!res.ok) {
@@ -308,6 +332,7 @@
       try {
         const fd = new FormData();
         fd.append('identificador', idv);
+        fd.append('proveedor', document.getElementById('proveedorSingle').value);
         const res = await fetch('/api/entregas/id', { method: 'POST', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Error al marcar.');

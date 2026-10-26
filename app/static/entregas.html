@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marcar Entregas · Solicitudes</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --azul: #2f5496;
+      --azul-claro: #d9e1f2;
+      --gris: #6b7280;
+      --ok: #1e7e34;
+      --err: #b02a37;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      width: 100%;
+      max-width: 680px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 32px;
+      margin-top: 24px;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 4px; color: #111827; }
+    p.sub { margin: 0 0 20px; color: var(--gris); font-size: .92rem; }
+    .drop {
+      border: 2px dashed #c3ccdb;
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--gris);
+      cursor: pointer;
+      transition: all .15s ease;
+      background: #fafbff;
+    }
+    .drop:hover { border-color: var(--azul); background: #f5f8ff; }
+    .drop.drag { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); }
+    .drop svg { width: 42px; height: 42px; margin-bottom: 8px; opacity: .8; }
+    .drop strong { color: var(--azul); }
+    .file {
+      margin-top: 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f1f5ff;
+      border: 1px solid #dbe4ff;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .9rem;
+    }
+    .file .name { font-weight: 600; color: #1f2937; word-break: break-all; }
+    .row { display: flex; gap: 12px; margin-top: 16px; align-items: flex-end; }
+    .field { flex: 1; }
+    .field label { display: block; font-size: .82rem; color: var(--gris); margin-bottom: 4px; }
+    .field input {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: .95rem;
+    }
+    button {
+      background: var(--azul); color: #fff; border: 0; border-radius: 8px;
+      padding: 11px 20px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    button:hover:not(:disabled) { background: #243d6e; }
+    button:disabled { background: #9aa7c7; cursor: not-allowed; }
+    .link { background: none; color: var(--azul); text-decoration: underline; padding: 0; font-weight: 600; }
+    .msg { margin-top: 14px; font-size: .9rem; min-height: 20px; }
+    .msg.ok { color: var(--ok); }
+    .msg.err { color: var(--err); }
+    .stats { display: flex; gap: 16px; margin-top: 14px; font-size: .9rem; flex-wrap: wrap; }
+    .stat { background: #f3f4f6; border-radius: 8px; padding: 8px 14px; }
+    .stat b { display: block; font-size: 1.2rem; }
+    .stat.ok b { color: var(--ok); } .stat.warn b { color: #b45309; } .stat.err b { color: var(--err); }
+    #log {
+      margin-top: 14px; background: #111827; color: #d1fae5;
+      border-radius: 8px; padding: 14px; font-family: ui-monospace, Consolas, monospace;
+      font-size: .78rem; max-height: 300px; overflow-y: auto;
+      white-space: pre-wrap; display: none;
+    }
+    .bar { margin-top: 12px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; display: none; }
+    .bar > div { height: 100%; background: var(--azul); width: 0%; transition: width .3s; }
+    .nav { margin-top: 18px; text-align: center; font-size: .85rem; }
+    .nav a { color: var(--azul); }
+    .dl {
+      display: none; margin-top: 16px; text-align: center;
+    }
+    .dl a {
+      display: inline-block; background: var(--ok); color: #fff;
+      padding: 11px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Marcar Entregas</h1>
+    <p class="sub">Sube el Excel de solicitudes o un .txt con IDs (uno por línea) para marcarlos como entregados.</p>
+
+    <div id="drop" class="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 16V4m0 0L8 8m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/>
+      </svg>
+      <div>Suelta el <b>.xlsx</b> o <b>.txt</b> aquí o <strong>haz clic para seleccionarlo</strong></div>
+      <input id="input" type="file" accept=".txt,.xlsx" hidden />
+    </div>
+
+    <div id="file" class="file">
+      <span class="name" id="fileName"></span>
+      <button class="link" id="clear" type="button">Quitar</button>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="limite">Cantidad a procesar (vacío = todas las pendientes)</label>
+        <input id="limite" type="number" min="1" placeholder="todas" />
+      </div>
+      <button id="start" disabled>Marcar entregas</button>
+    </div>
+
+    <div class="bar" id="bar"><div id="barFill"></div></div>
+    <div class="stats" id="stats" style="display:none">
+      <div class="stat ok"><b id="sEnt">0</b>Entregadas</div>
+      <div class="stat warn"><b id="sCul">0</b>Ya culminadas</div>
+      <div class="stat err"><b id="sErr">0</b>Errores</div>
+      <div class="stat"><b id="sInt">0</b>Intentos</div>
+    </div>
+    <div id="msg" class="msg"></div>
+    <pre id="log"></pre>
+    <div class="dl" id="dl"><a id="dlLink" href="#">Descargar archivo actualizado</a></div>
+
+    <div class="nav"><a href="/">← Volver al conversor PDF → Excel</a></div>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const input = document.getElementById('input');
+    const fileBox = document.getElementById('file');
+    const fileName = document.getElementById('fileName');
+    const clearBtn = document.getElementById('clear');
+    const startBtn = document.getElementById('start');
+    const limiteIn = document.getElementById('limite');
+    const msg = document.getElementById('msg');
+    const logEl = document.getElementById('log');
+    const stats = document.getElementById('stats');
+    const bar = document.getElementById('bar');
+    const barFill = document.getElementById('barFill');
+    const dl = document.getElementById('dl');
+    const dlLink = document.getElementById('dlLink');
+    let selected = null;
+    let jobId = null;
+    let poll = null;
+    let logLen = 0;
+
+    function setFile(f) {
+      if (!f) return;
+      if (!/\.(txt|xlsx)$/i.test(f.name)) {
+        showMsg('Solo se aceptan archivos .txt o .xlsx', 'err');
+        return;
+      }
+      selected = f;
+      fileName.textContent = f.name;
+      fileBox.style.display = 'flex';
+      startBtn.disabled = false;
+      showMsg('', '');
+    }
+
+    function clearFile() {
+      selected = null; input.value = '';
+      fileBox.style.display = 'none';
+      startBtn.disabled = true;
+      showMsg('', '');
+    }
+
+    function showMsg(text, type) {
+      msg.textContent = text;
+      msg.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    drop.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => setFile(input.files[0]));
+    clearBtn.addEventListener('click', clearFile);
+    ['dragenter', 'dragover'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', e => {
+      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+    });
+
+    function appendLog(lines) {
+      if (lines.length > logLen) {
+        logEl.style.display = 'block';
+        logEl.textContent += lines.slice(logLen).join('\n') + '\n';
+        logLen = lines.length;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    }
+
+    async function pollJob() {
+      try {
+        const res = await fetch('/api/entregas/' + jobId);
+        if (!res.ok) throw new Error('No se pudo consultar el estado.');
+        const j = await res.json();
+        appendLog(j.log);
+        document.getElementById('sEnt').textContent = j.entregadas;
+        document.getElementById('sCul').textContent = j.culminadas;
+        document.getElementById('sErr').textContent = j.fallidas;
+        document.getElementById('sInt').textContent = j.intentos;
+        stats.style.display = 'flex';
+        if (j.total) barFill.style.width = Math.round(100 * j.intentos / j.total) + '%';
+
+        if (j.state === 'done') {
+          clearInterval(poll); poll = null;
+          startBtn.disabled = false; startBtn.textContent = 'Marcar entregas';
+          barFill.style.width = '100%';
+          showMsg('Proceso terminado.', 'ok');
+          if (j.result_name) {
+            dlLink.href = '/api/entregas/' + jobId + '/download';
+            dlLink.textContent = 'Descargar ' + j.result_name;
+            dl.style.display = 'block';
+          }
+        } else if (j.state === 'error') {
+          clearInterval(poll); poll = null;
+          startBtn.disabled = false; startBtn.textContent = 'Marcar entregas';
+          showMsg('Error: ' + (j.error || 'desconocido'), 'err');
+        }
+      } catch (e) {
+        clearInterval(poll); poll = null;
+        startBtn.disabled = false; startBtn.textContent = 'Marcar entregas';
+        showMsg(e.message, 'err');
+      }
+    }
+
+    startBtn.addEventListener('click', async () => {
+      if (!selected) return;
+      const lim = parseInt(limiteIn.value, 10);
+      startBtn.disabled = true;
+      startBtn.innerHTML = 'Procesando...';
+      logEl.textContent = ''; logLen = 0; logEl.style.display = 'none';
+      stats.style.display = 'none'; dl.style.display = 'none';
+      bar.style.display = 'block'; barFill.style.width = '0%';
+      showMsg('', '');
+
+      try {
+        const fd = new FormData();
+        fd.append('file', selected);
+        if (lim > 0) fd.append('limite', String(lim));
+        const res = await fetch('/api/entregas', { method: 'POST', body: fd });
+        if (!res.ok) {
+          let detail = 'Error al iniciar el proceso.';
+          try { detail = (await res.json()).detail || detail; } catch (_) {}
+          throw new Error(detail);
+        }
+        jobId = (await res.json()).job_id;
+        showMsg('Procesando... puedes seguir el log abajo.', '');
+        poll = setInterval(pollJob, 1500);
+        pollJob();
+      } catch (err) {
+        showMsg(err.message, 'err');
+        startBtn.disabled = false; startBtn.textContent = 'Marcar entregas';
+      }
+    });
+  </script>
+</body>
+</html>

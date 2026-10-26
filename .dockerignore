@@ -10,3 +10,4 @@ venv/
 *.xlsx
 .devin/
 README.md
+.env

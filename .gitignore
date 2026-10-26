@@ -27,3 +27,5 @@ env/
 *.pdf
 *.PDF
 *.xlsx
+entrega.py
+entrega.sh

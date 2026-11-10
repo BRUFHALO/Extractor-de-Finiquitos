@@ -23,9 +23,25 @@ env/
 # Salidas generadas
 *.tmp
 
+# Credenciales y claves
+*.json
+service-account.json
+!docker-compose.yml
+
 # PDFs y Excel de ejemplo (contienen datos sensibles de pagos)
 *.pdf
 *.PDF
 *.xlsx
+
+# Scripts locales con credenciales / datos sensibles
 entrega.py
 entrega.sh
+lotes.py
+lotes.sh
+
+# Perfil de navegador persistente (cookies, sesiones)
+perfil_lotes/
+
+# Resultados locales
+lotes_resultado.xlsx
+lotes_fresh.xlsx

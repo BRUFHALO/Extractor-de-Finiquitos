@@ -31,10 +31,7 @@ def _load_env_file():
 
 _load_env_file()
 
-API_URL = os.environ.get(
-    "ENTREGA_API_URL",
-    "https://REDACTED_ENDPOINT",
-)
+API_URL = os.environ.get("ENTREGA_API_URL", "")
 AUTH_TOKEN = os.environ.get("ENTREGA_TOKEN", "")
 CODIGO_PROVEEDOR_TXT = os.environ.get("ENTREGA_COD_PROVEEDOR", "00077")
 

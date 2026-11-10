@@ -38,6 +38,14 @@ def _as_int(value: str):
     return int(v) if v.isdigit() else v
 
 
+def _as_text(value):
+    """Devuelve el valor como texto preservando ceros a la izquierda."""
+    if value is None:
+        return None
+    v = str(value).strip()
+    return v or None
+
+
 def build_xlsx(rows: list[dict]) -> bytes:
     wb = Workbook()
     ws = wb.active
@@ -60,7 +68,7 @@ def build_xlsx(rows: list[dict]) -> bytes:
     # Filas de datos
     for r, row in enumerate(rows, start=2):
         values = [
-            _as_int(row.get("fact")),         # A  Fact.
+            _as_text(row.get("fact")),        # A  Fact. (texto: preserva ceros)
             row.get("fecha_fac"),             # B  Fecha Fac
             row.get("fec_recep"),             # C  Fec.Recep.
             _as_int(row.get("ci_pac")),       # D  C.I. Pac.
@@ -70,7 +78,7 @@ def build_xlsx(rows: list[dict]) -> bytes:
             row.get("total_fac"),             # H  Total Fac.
             row.get("monto_pagar"),           # I  Monto a pagar
             row.get("pagado"),                # J  Pagado
-            _as_int(row.get("referencia")),   # K  Referencia
+            _as_text(row.get("referencia")),  # K  Referencia (texto: preserva ceros)
             row.get("fecha_pago"),            # L  Fecha pago
         ]
         for c_idx, value in enumerate(values, start=1):
@@ -78,7 +86,9 @@ def build_xlsx(rows: list[dict]) -> bytes:
                 value = 0
             cell = ws.cell(row=r, column=c_idx, value=value)
             cell.border = border
-            if c_idx in (2, 3, 12) and isinstance(value, (date, datetime)):
+            if c_idx in (1, 11) and isinstance(value, str):
+                cell.number_format = "@"  # texto explícito (ceros a la izquierda)
+            elif c_idx in (2, 3, 12) and isinstance(value, (date, datetime)):
                 cell.number_format = DATE_FMT
             elif c_idx in (8, 9, 10) and isinstance(value, (int, float)):
                 cell.number_format = MONEY_FMT
